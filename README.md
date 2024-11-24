@@ -35,3 +35,29 @@ EVE_CLIENT_ID=your_client_id
 EVE_CLIENT_SECRET=your_client_secret
 EVE_REDIRECT_URI=your_redirect_uri
 
+# Integration Service
+
+## Configuration
+
+To set up the environment variables, follow these steps:
+
+1. **Create a `.env` file** in the root directory of the project.
+2. **Copy the content** from `.env.example` into your `.env` file.
+3. **Replace** the placeholder values with your actual credentials and URLs.
+
+### Example of `.env` File:
+
+
+## Installation
+
+1. **Install dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+2. **Run the server**:
+    ```bash
+    python integration_service/app.py
+    ```
+
+Ensure your `.env` file is correctly configured with your credentials and URLs before running the server.
