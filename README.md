@@ -23,3 +23,15 @@ Contributions are welcome! Please fork the repository and submit pull requests f
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+# Integration Service
+
+## Configuration
+
+To set up the environment variables, create a `.env` file in the root directory of the project with the following content:
+
+```bash
+EVE_CLIENT_ID=your_client_id
+EVE_CLIENT_SECRET=your_client_secret
+EVE_REDIRECT_URI=your_redirect_uri
+
