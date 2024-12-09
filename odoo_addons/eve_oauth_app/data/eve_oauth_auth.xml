@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <!-- Data file for configuring Eve Online OAuth provider -->
+    <data noupdate="0">
+        <!-- Record for the Eve Online OAuth provider -->
+        <record id="eve_provider" model="auth.oauth.provider">
+            <field name="name">Eve Online</field>
+            <!-- Authorization endpoint URL for Eve Online -->
+            <field name="auth_endpoint">https://login.eveonline.com/v2/oauth/authorize</field>
+            <!-- Scope of access requested from Eve Online -->
+            <field name="scope">publicData</field>
+            <!-- Enable the OAuth provider -->
+            <field name="enabled">True</field>
+            <!-- Endpoint for token validation -->
+            <field name="validation_endpoint">https://login.eveonline.com/v2/oauth/token</field>
+            <!-- CSS class for the provider icon -->
+            <field name="css_class">fa fa-fw fa-eve-online</field>
+            <!-- Description text for the provider -->
+            <field name="body">Log in with Eve Online</field>
+        </record>
+    </data>
+</odoo>

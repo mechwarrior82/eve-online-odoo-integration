@@ -4,6 +4,7 @@ from utils.oauth import get_access_token, fetch_user_data
 from dotenv import load_dotenv
 import os
 import secrets
+import logging
 
 load_dotenv()
 
@@ -14,6 +15,7 @@ CLIENT_ID = os.getenv('EVE_CLIENT_ID')
 CLIENT_SECRET = os.getenv('EVE_CLIENT_SECRET')
 REDIRECT_URI = os.getenv('EVE_REDIRECT_URI')
 SCOPE = 'esi-corporations.read_corporation_membership.v1 esi-mail.send_mail.v1'  # Updated scope
+ODOO_URL = os.getenv('ODOO_URL')
 
 @app.route('/')
 def index():
@@ -25,6 +27,9 @@ def login():
     session['oauth_state'] = state  # Store the state in the session
     authorization_url = f"https://login.eveonline.com/v2/oauth/authorize/?response_type=code&client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope={SCOPE}&state={state}"
     return redirect(authorization_url)
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 @app.route('/callback')
 def callback():
@@ -39,11 +44,16 @@ def callback():
     access_token = get_access_token(code)
     user_data = fetch_user_data(access_token)
 
-    # Send user data to Odoo
-    odoo_url = 'http://localhost:8069/eve/auth'  # Update this URL
+    # Send user data to Odoo and log the response
+    odoo_url = f'{ODOO_URL}/eve/auth'
     response = requests.post(odoo_url, json=user_data)
+    logging.debug(f"Odoo Response: {response.text}")
+    
+    if response.status_code == 200:
+        return render_template('success.html', user_data=user_data)
+    else:
+        return f"Failed to send data to Odoo: {response.text}"
 
-    return render_template('success.html', user_data=user_data)
 
 if __name__ == '__main__':
     app.run(debug=True)

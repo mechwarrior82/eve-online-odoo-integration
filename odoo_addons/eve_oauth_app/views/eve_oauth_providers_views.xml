@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <!-- Inherit the OAuth provider form view to add Eve Online specific fields -->
+    <record id="eve_oauth_form_view_inherit" model="ir.ui.view">
+        <field name="name">eve.oauth.form.view.inherit</field>
+        <field name="model">auth.oauth.provider</field>
+        <field name="inherit_id" ref="auth_oauth.view_oauth_provider_form"/>
+        <field name="arch" type="xml">
+            <!-- Add Eve Online specific fields after the client_id field -->
+            <xpath expr="//field[@name='client_id']" position="after">
+                <!-- Field for Eve Online Client Secret, visible and required only if the provider is Eve Online -->
+                <field name="eve_client_secret" attrs="{'invisible': [('eve_is_eve_online', '!=', True)], 'required': [('eve_is_eve_online', '=', True)]}"/>
+                <!-- Radio buttons for User Type (Internal or Portal) -->
+                <field name="eve_user_type" widget="radio" options="{'horizontal':True}"/>
+                <!-- Invisible field to indicate if the provider is Eve Online -->
+                <field name="eve_is_eve_online" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
