@@ -1,6 +1,7 @@
 import logging
 import requests
 import werkzeug
+import base64
 from odoo.addons.auth_signup.models.res_partner import SignupError
 from odoo import models, fields, api, _
 from odoo.exceptions import AccessDenied
@@ -14,6 +15,58 @@ class EveResUsersInherit(models.Model):
     oauth_token = fields.Char(string="Oauth Token", readonly=True)
     eve_username = fields.Char(string="Eve Username", default="No username")
     eve_email = fields.Char(string="Eve Email")
+    eve_character_id = fields.Char(string="Eve Character ID")
+    eve_character_image_url = fields.Char(string="Eve Character Image URL", compute='_compute_character_image', store=True)
+
+    @api.depends('eve_character_id')
+    def _compute_character_image(self):
+        _logger.debug("_compute_character_image: started")
+        for user in self:
+            if user.eve_character_id:
+                user.eve_character_image_url = f"https://images.evetech.net/characters/{user.eve_character_id}/portrait"
+                _logger.debug("Computed character image URL for user %s: %s", user.id, user.eve_character_image_url)
+            else:
+                user.eve_character_image_url = False
+                _logger.debug("No Eve character ID found for user %s", user.id)
+
+    @api.model
+    def _sync_character_image(self, user_id):
+        _logger.debug("Starting _sync_character_image for user_id: %s", user_id)
+        user = self.browse(user_id)
+        if user.eve_character_image_url:
+            try:
+                _logger.debug("Fetching character image from URL: %s", user.eve_character_image_url)
+                response = requests.get(user.eve_character_image_url)
+                response.raise_for_status()
+                user.image_1920 = base64.b64encode(response.content)
+                _logger.debug("Character image synced for user %s", user_id)
+            except requests.exceptions.RequestException as e:
+                _logger.error("Failed to fetch character image for user %s: %s", user_id, e)
+        else:
+            _logger.debug("No character image URL found for user %s", user_id)
+
+    @api.model
+    def auth_oauth(self, provider, params):
+        """ Authenticate the user with the OAuth provider """
+        _logger.debug("auth_oauth called with provider: %s and params: %s", provider, params)
+        
+        db, login, key = super(EveResUsersInherit, self).auth_oauth(provider, params)
+        user = self.search([('login', '=', login)])
+        if user:
+            _logger.debug("User found: %s, syncing character image", user.id)
+            _logger.debug("User Eve Character ID before update: %s", user.eve_character_id)  # Log the Eve Character ID before updating
+            
+            # Set the Eve Character ID using oauth_uid from the Odoo OAuth module
+            user.write({'eve_character_id': user.oauth_uid})
+            
+            _logger.debug("User Eve Character ID after update: %s", user.eve_character_id)  # Log the Eve Character ID after updating
+            user._compute_character_image()  # Force recomputation here
+            user._sync_character_image(user.id)
+        else:
+            _logger.debug("User not found for login: %s", login)
+        
+        return (db, login, key)
+
 
     def _auth_oauth_rpc(self, endpoint, access_code):
         """ Make a request to the OAuth provider's endpoint with the access code """
@@ -27,7 +80,6 @@ class EveResUsersInherit(models.Model):
                 'code': access_code
             }
             response = requests.post(endpoint, data=params, headers={'Accept': 'application/json'}, timeout=10)
-            # response = requests.get(endpoint, params=params, timeout=10)
             return self._handle_oauth_response(response)
         else:
             return self._make_oauth_request(endpoint, access_code)
@@ -41,6 +93,7 @@ class EveResUsersInherit(models.Model):
             auth_token = response_data['access_token']
             headers = {'Authorization': f'Bearer {auth_token}'}
             eve_user_data = requests.get('https://login.eveonline.com/oauth/verify', headers=headers).json()
+            _logger.debug("Eve Character ID from OAuth response: %s", eve_user_data.get('CharacterID'))  # Log the Character ID from response
             return {
                 'key': auth_token,
                 'user_id': eve_user_data.get('CharacterID'),
@@ -50,27 +103,6 @@ class EveResUsersInherit(models.Model):
                 'login': eve_user_data.get('CharacterName')
             }
         return {'error': 'invalid_request'}
-
-    def _make_oauth_request(self, endpoint, access_code):
-        """ Make OAuth request based on authorization header setting """
-        if self.env['ir.config_parameter'].sudo().get_param('auth_oauth.authorization_header'):
-            response = requests.get(endpoint, headers={'Authorization': 'Bearer %s' % access_code}, timeout=10)
-        else:
-            response = requests.get(endpoint, params={'access_token': access_code}, timeout=10)
-        if response.ok:
-            return response.json()
-        auth_challenge = werkzeug.http.parse_www_authenticate_header(response.headers.get('WWW-Authenticate'))
-        if auth_challenge.type == 'bearer' and 'error' in auth_challenge:
-            return dict(auth_challenge)
-        return {'error': 'invalid_request'}
-
-    def _redirect_with_error(self, error_code, error_msg=None):
-        """ Redirect to login page with an error code """
-        _logger.info('OAuth2: access denied, redirect to main page. REASON: %s' % error_msg)
-        r_url = "/web/login?oauth_error=%s" % error_code
-        redirect = werkzeug.utils.redirect(r_url, 303)
-        redirect.autocorrect_location_header = False
-        return redirect
 
     @api.model
     def _auth_oauth_validate(self, provider, access_code):
@@ -93,35 +125,6 @@ class EveResUsersInherit(models.Model):
             raise AccessDenied('Missing subject identity')
         validation['user_id'] = subject
         return validation
-
-    # @api.model ## This is the original method
-    # def auth_oauth(self, provider, params):
-    #     # Advice by Google (to avoid Confused Deputy Problem)
-    #     # if validation.audience != OUR_CLIENT_ID:
-    #     #   abort()
-    #     # else:
-    #     #   continue with the process
-    #     access_token = params.get('access_token')
-    #     validation = self._auth_oauth_validate(provider, access_token)
-
-    #     # retrieve and sign in user
-    #     login = self._auth_oauth_signin(provider, validation, params)
-    #     if not login:
-    #         raise AccessDenied()
-    #     # return user credentials
-    #     return (self.env.cr.dbname, login, access_token)
-
-    # @api.model ## this is the new method
-    # def auth_oauth(self, provider, params):
-    #     """ Authenticate the user with the OAuth provider """
-    #     _logger.debug("OAuth2: Starting auth_oauth with provider: %s and params: %s", provider, params)
-    #     access_code = params.get('code')
-    #     validation = self._auth_oauth_validate(provider, access_code)
-    #     params['access_token'] = validation['key']
-    #     login = self._auth_oauth_signin(provider, validation, params)
-    #     if not login:
-    #         raise AccessDenied()
-    #     return (self.env.cr.dbname, login, validation['key'])
 
     @api.model
     def _signup_create_user(self, values):
@@ -162,14 +165,13 @@ class EveResUsersInherit(models.Model):
         oauth_uid = validation['user_id']
         email = validation.get('email', 'provider_%s_user_%s' % (provider, oauth_uid))
         name = validation['name']
-        # access_token = validation['key']
         data = {
             'name': name,
             'login': name,
             'email': email,
             'oauth_provider_id': provider,
             'oauth_uid': oauth_uid,
-            'oauth_access_token': params['access_token'], # 'oauth_access_token': access_token,
+            'oauth_access_token': params['access_token'],
             'active': True,
         }
         if provider_obj.name in ['Eve Online', 'eve_online']:

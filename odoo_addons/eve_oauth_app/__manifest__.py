@@ -1,5 +1,5 @@
 {
-    'name': "Odoo Eve Online ERP",
+    'name': "Eve Online Odoo Intergration",
     'summary': """
                 Login via Eve Online logs user into Odoo using their Eve Online credentials.
     """,

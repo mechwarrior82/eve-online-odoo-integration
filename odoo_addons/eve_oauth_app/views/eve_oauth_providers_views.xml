@@ -17,4 +17,20 @@
             </xpath>
         </field>
     </record>
+
+    <!-- Inherit the user form view to add Eve Online character fields -->
+    <record id="view_users_form_inherit_eve" model="ir.ui.view">
+        <field name="name">res.users.form.inherit.eve</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <!-- Update this xpath expression to reference an existing field -->
+            <xpath expr="//field[@name='login']" position="after">
+                <!-- Field for Eve Online Character ID -->
+                <field name="eve_character_id"/>
+                <!-- Field for Eve Online Character Image URL, typically hidden but needed for computation -->
+                <field name="eve_character_image_url" invisible="1"/>
+            </xpath> 
+        </field>
+    </record>
 </odoo>
