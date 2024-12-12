@@ -45,6 +45,17 @@ class EveResUsersInherit(models.Model):
         else:
             _logger.debug("No character image URL found for user %s", user_id)
 
+    def _get_eve_corporation(self, user):
+        """Fetch the corporation details from Eve Online using the character ID"""
+        headers = {'Authorization': f'Bearer {user.oauth_token}'}
+        response = requests.get(f'https://esi.evetech.net/latest/characters/{user.eve_character_id}/corporationhistory/', headers=headers)
+        if response.ok:
+            corporation_id = response.json()[0]['corporation_id']
+            corp_response = requests.get(f'https://esi.evetech.net/latest/corporations/{corporation_id}/', headers=headers)
+            if corp_response.ok:
+                return corp_response.json()
+        return None
+
     @api.model
     def auth_oauth(self, provider, params):
         """ Authenticate the user with the OAuth provider """
@@ -53,15 +64,50 @@ class EveResUsersInherit(models.Model):
         db, login, key = super(EveResUsersInherit, self).auth_oauth(provider, params)
         user = self.search([('login', '=', login)])
         if user:
-            _logger.debug("User found: %s, syncing character image", user.id)
-            _logger.debug("User Eve Character ID before update: %s", user.eve_character_id)  # Log the Eve Character ID before updating
+            _logger.debug("User found: %s, syncing character image and corporation", user.id)
             
-            # Set the Eve Character ID using oauth_uid from the Odoo OAuth module
-            user.write({'eve_character_id': user.oauth_uid})
+            _logger.debug("User Eve Character ID before update: %s", user.eve_character_id)
+            user.write({'eve_character_id': user.oauth_uid})  # Set Eve Character ID using oauth_uid
+            _logger.debug("User Eve Character ID after update: %s", user.eve_character_id)
             
-            _logger.debug("User Eve Character ID after update: %s", user.eve_character_id)  # Log the Eve Character ID after updating
-            user._compute_character_image()  # Force recomputation here
-            user._sync_character_image(user.id)
+            # Fetch the character's corporation details
+            corporation_data = self._get_eve_corporation(user)
+            if corporation_data:
+                corp_name = corporation_data['name']
+                _logger.debug("Fetched corporation name: %s", corp_name)
+                
+                # Check if the corporation exists in Odoo's partners
+                corp_partner = self.env['res.partner'].search([('name', '=', corp_name)], limit=1)
+                if not corp_partner:
+                    _logger.debug("Corporation not found in partners, creating a new partner")
+                    corp_partner = self.env['res.partner'].create({'name': corp_name})
+                    
+                # Update the user's partner to have its parent_id set to the corporation partner
+                user.partner_id.write({'parent_id': corp_partner.id})
+                
+                # Retrieve the list of internal companies from res.company
+                internal_companies = self.env['res.company'].search([])
+                internal_corp_list = [company.name for company in internal_companies]
+                
+                # Log the internal corporation list
+                _logger.debug("Internal Corporation List: %s", internal_corp_list)
+                
+                # Get the internal and portal user groups
+                internal_user_group = self.env.ref('base.group_user')
+                portal_user_group = self.env.ref('base.group_portal')
+                
+                # Set user role based on corporation
+                if corp_name in internal_corp_list:
+                    user.write({'groups_id': [(4, internal_user_group.id), (3, portal_user_group.id)]})  # Add to internal group, remove from portal group
+                    _logger.debug("User set as internal user")
+                else:
+                    user.write({'groups_id': [(4, portal_user_group.id), (3, internal_user_group.id)]})  # Add to portal group, remove from internal group
+                    _logger.debug("User set as portal user")
+                
+                user._compute_character_image()  # Force recomputation here
+                user._sync_character_image(user.id)
+            else:
+                _logger.debug("Corporation data not found for user")
         else:
             _logger.debug("User not found for login: %s", login)
         

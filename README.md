@@ -18,25 +18,6 @@ This repository contains custom Odoo modules for integrating Eve Online function
 4. **Recruitment and Member Management**
 5. **In-Game Messaging and Communication**
 
-## Contributing
-Contributions are welcome! Please fork the repository and submit pull requests for review.
-
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-# Integration Service
-
-## Configuration
-
-To set up the environment variables, create a `.env` file in the root directory of the project with the following content:
-
-```bash
-EVE_CLIENT_ID=your_client_id
-EVE_CLIENT_SECRET=your_client_secret
-EVE_REDIRECT_URI=your_redirect_uri
-
-# Integration Service
-
 ## Configuration
 
 To set up the environment variables, follow these steps:
@@ -45,8 +26,15 @@ To set up the environment variables, follow these steps:
 2. **Copy the content** from `.env.example` into your `.env` file.
 3. **Replace** the placeholder values with your actual credentials and URLs.
 
+To set up the environment variables, create a `.env` file in the root directory of the project with the following content:
+
 ### Example of `.env` File:
 
+```bash
+EVE_CLIENT_ID=your_client_id
+EVE_CLIENT_SECRET=your_client_secret
+EVE_REDIRECT_URI=your_redirect_uri
+```
 
 ## Installation
 
@@ -61,3 +49,9 @@ To set up the environment variables, follow these steps:
     ```
 
 Ensure your `.env` file is correctly configured with your credentials and URLs before running the server.
+
+## Contributing
+Contributions are welcome! Please fork the repository and submit pull requests for review.
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
